@@ -1,0 +1,126 @@
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, View, BackHandler } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+
+import HomeScreen from './src/screens/HomeScreen';
+import RecipeDetailScreen from './src/screens/RecipeDetailScreen';
+import FavoritesScreen from './src/screens/FavoritesScreen';
+import MyFoodScreen from './src/screens/MyFoodScreen';
+import AddRecipeScreen from './src/screens/AddRecipeScreen';
+import { initialRecipes } from './src/data/recipes';
+import { colors } from './src/theme';
+
+/**
+ * Foodie — приложение для рецептов.
+ *
+ * Навигация реализована собственным стеком экранов, поэтому
+ * кнопка «Назад» работает и на экране, и через системную кнопку Android.
+ */
+export default function App() {
+  const [stack, setStack] = useState([{ name: 'Home', params: {} }]);
+  const [recipes, setRecipes] = useState(initialRecipes);
+  const [favorites, setFavorites] = useState([]);
+  const [myRecipeIds, setMyRecipeIds] = useState([]);
+
+  const current = stack[stack.length - 1];
+
+  const push = (name, params = {}) => {
+    setStack((prev) => [...prev, { name, params }]);
+  };
+
+  const pop = () => {
+    setStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
+  };
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        if (stack.length > 1) {
+          pop();
+          return true;
+        }
+        return false;
+      }
+    );
+
+    return () => subscription.remove();
+  }, [stack.length]);
+
+  const toggleFavorite = (recipeId) => {
+    setFavorites((prev) =>
+      prev.includes(recipeId)
+        ? prev.filter((id) => id !== recipeId)
+        : [...prev, recipeId]
+    );
+  };
+
+  const addRecipe = (recipe) => {
+    setRecipes((prev) => [recipe, ...prev]);
+    setMyRecipeIds((prev) => [recipe.id, ...prev]);
+  };
+
+  const updateRecipe = (recipe) => {
+    setRecipes((prev) =>
+      prev.map((item) => (item.id === recipe.id ? recipe : item))
+    );
+  };
+
+  const deleteRecipe = (recipeId) => {
+    setRecipes((prev) => prev.filter((item) => item.id !== recipeId));
+    setMyRecipeIds((prev) => prev.filter((id) => id !== recipeId));
+    setFavorites((prev) => prev.filter((id) => id !== recipeId));
+  };
+
+  const sharedProps = {
+    recipes,
+    favorites,
+    myRecipeIds,
+    toggleFavorite,
+    push,
+    pop,
+    addRecipe,
+    updateRecipe,
+    deleteRecipe,
+  };
+
+  const renderScreen = () => {
+    switch (current.name) {
+      case 'Detail':
+        return (
+          <RecipeDetailScreen
+            {...sharedProps}
+            recipeId={current.params.recipeId}
+          />
+        );
+      case 'Favorites':
+        return <FavoritesScreen {...sharedProps} />;
+      case 'MyFood':
+        return <MyFoodScreen {...sharedProps} />;
+      case 'AddRecipe':
+        return (
+          <AddRecipeScreen
+            {...sharedProps}
+            recipeId={current.params.recipeId}
+          />
+        );
+      case 'Home':
+      default:
+        return <HomeScreen {...sharedProps} />;
+    }
+  };
+
+  return (
+    <View style={styles.root}>
+      <StatusBar style="dark" />
+      {renderScreen()}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+});
